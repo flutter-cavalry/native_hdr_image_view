@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -69,19 +71,19 @@ void main() {
         }
       });
 
-      Future<void> show(String? path, BoxFit fit) async {
+      Future<void> showView(NativeHdrImageView view) async {
         await tester.pumpWidget(
           Directionality(
             textDirection: TextDirection.ltr,
-            child: SizedBox(
-              width: 200,
-              height: 100,
-              child: NativeHdrImageView(imagePath: path, fit: fit),
-            ),
+            child: Center(child: view),
           ),
         );
         await tester.pump();
       }
+
+      Future<void> show(String? path, BoxFit fit) => showView(
+        NativeHdrImageView(imagePath: path, fit: fit, width: 200, height: 100),
+      );
 
       await show('/tmp/hdr.heic', BoxFit.contain);
       expect(creationParameters, <String, Object?>{
@@ -100,6 +102,58 @@ void main() {
           'fit': fit.name,
         });
       }
+
+      await showView(
+        NativeHdrImageView.file(
+          File('/tmp/local.heic'),
+          width: 200,
+          height: 150,
+          fit: BoxFit.cover,
+        ),
+      );
+      expect(updates.last.arguments, <String, Object?>{
+        'imagePath': '/tmp/local.heic',
+        'fit': 'cover',
+      });
+      final viewFinder = find.byType(
+        platform == TargetPlatform.iOS ? UiKitView : AppKitView,
+      );
+      expect(tester.getSize(viewFinder), const Size(200, 150));
+
+      final bytes = Uint8List.fromList(<int>[1, 2, 3]);
+      await showView(NativeHdrImageView.bytes(bytes, width: 160, height: 90));
+      expect(updates.last.arguments, <String, Object?>{
+        'imagePath': null,
+        'imageBytes': bytes,
+        'fit': 'contain',
+      });
+      expect(tester.getSize(viewFinder), const Size(160, 90));
+
+      await showView(
+        const NativeHdrImageView.network(
+          'https://example.com/hdr.heic',
+          width: 200,
+          height: 150,
+          fit: BoxFit.cover,
+        ),
+      );
+      expect(updates.last.arguments, <String, Object?>{
+        'imagePath': null,
+        'imageUrl': 'https://example.com/hdr.heic',
+        'fit': 'cover',
+      });
+      final updateCount = updates.length;
+      await showView(
+        const NativeHdrImageView.network(
+          'https://example.com/hdr.heic',
+          width: 300,
+          height: 180,
+          fit: BoxFit.cover,
+        ),
+      );
+      expect(updates, hasLength(updateCount));
+      expect(tester.getSize(viewFinder), const Size(300, 180));
+
       await show(null, BoxFit.contain);
       expect((updates.last.arguments as Map)['imagePath'], isNull);
       expect(viewIds, hasLength(1));

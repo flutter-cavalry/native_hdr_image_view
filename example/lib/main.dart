@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:native_hdr_image_view/native_hdr_image_view.dart';
@@ -160,7 +162,7 @@ class _MyAppState extends State<MyApp> {
                               ],
                             ),
                           )
-                        : NativeHdrImageView(imagePath: _imagePath, fit: _fit),
+                        : NativeHdrImageView.file(File(_imagePath!), fit: _fit),
                   ),
                 ),
               ),
