@@ -6,8 +6,8 @@ import PackageDescription
 let package = Package(
     name: "native_hdr_image_view",
     platforms: [
-        .iOS("17.0"),
-        .macOS("14.0"),
+        .iOS("16.0"),
+        .macOS("12.0"),
     ],
     products: [
         .library(name: "native-hdr-image-view", targets: ["native_hdr_image_view"])

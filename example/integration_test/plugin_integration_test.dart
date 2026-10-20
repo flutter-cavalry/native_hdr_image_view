@@ -18,12 +18,10 @@ import 'package:native_hdr_image_view/native_hdr_image_view.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('getPlatformVersion test', (WidgetTester tester) async {
-    final NativeHdrImageView plugin = NativeHdrImageView();
-    final String? version = await plugin.getPlatformVersion();
-    // The version string depends on the host platform running the test, so
-    // just assert that some non-empty string is returned.
-    expect(version?.isNotEmpty, true);
+  testWidgets('hasHdrSupport reports a native capability', (
+    WidgetTester tester,
+  ) async {
+    expect(await NativeHdrImageView.hasHdrSupport(), isA<bool>());
   });
 
   testWidgets('native sources decode, cancel, and report errors', (

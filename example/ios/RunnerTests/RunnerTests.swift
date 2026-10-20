@@ -13,14 +13,18 @@ import XCTest
 
 class RunnerTests: XCTestCase {
 
-  func testGetPlatformVersion() {
+  func testHasHdrSupport() {
     let plugin = NativeHdrImageViewPlugin()
 
-    let call = FlutterMethodCall(methodName: "getPlatformVersion", arguments: [])
+    let call = FlutterMethodCall(methodName: "hasHdrSupport", arguments: [])
 
     let resultExpectation = expectation(description: "result block must be called.")
     plugin.handle(call) { result in
-      XCTAssertEqual(result as! String, "iOS " + UIDevice.current.systemVersion)
+      if #available(iOS 17.0, *) {
+        XCTAssertEqual(result as? Bool, true)
+      } else {
+        XCTAssertEqual(result as? Bool, false)
+      }
       resultExpectation.fulfill()
     }
     waitForExpectations(timeout: 1)

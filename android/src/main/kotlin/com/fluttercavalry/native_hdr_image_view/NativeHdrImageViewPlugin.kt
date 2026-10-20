@@ -19,16 +19,21 @@ class NativeHdrImageViewPlugin :
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "native_hdr_image_view")
         channel.setMethodCallHandler(this)
+        flutterPluginBinding.platformViewRegistry.registerViewFactory(
+            "native_hdr_image_view",
+            NativeHdrImageViewFactory(flutterPluginBinding.binaryMessenger),
+        )
     }
 
     override fun onMethodCall(
         call: MethodCall,
         result: Result
     ) {
-        if (call.method == "getPlatformVersion") {
-            result.success("Android ${android.os.Build.VERSION.RELEASE}")
-        } else {
-            result.notImplemented()
+        when (call.method) {
+            "hasHdrSupport" -> result.success(
+                android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+            )
+            else -> result.notImplemented()
         }
     }
 

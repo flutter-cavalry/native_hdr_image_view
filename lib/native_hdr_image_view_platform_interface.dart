@@ -8,7 +8,8 @@ abstract class NativeHdrImageViewPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static NativeHdrImageViewPlatform _instance = MethodChannelNativeHdrImageView();
+  static NativeHdrImageViewPlatform _instance =
+      MethodChannelNativeHdrImageView();
 
   /// The default instance of [NativeHdrImageViewPlatform] to use.
   ///
@@ -23,7 +24,7 @@ abstract class NativeHdrImageViewPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<String?> getPlatformVersion() {
-    throw UnimplementedError('platformVersion() has not been implemented.');
+  Future<bool> hasHdrSupport() {
+    throw UnimplementedError('hasHdrSupport() has not been implemented.');
   }
 }

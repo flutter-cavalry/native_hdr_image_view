@@ -16,8 +16,8 @@ A new Flutter plugin project.
   s.source_files = 'native_hdr_image_view/Sources/native_hdr_image_view/**/*'
 
   # Set the deployment targets for both iOS and macOS.
-  s.ios.deployment_target = '17.0'
-  s.osx.deployment_target = '14.0'
+  s.ios.deployment_target = '16.0'
+  s.osx.deployment_target = '12.0'
 
   # Define the platform-specific dependencies.
   s.ios.dependency 'Flutter'

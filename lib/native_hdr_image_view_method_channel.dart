@@ -10,10 +10,8 @@ class MethodChannelNativeHdrImageView extends NativeHdrImageViewPlatform {
   final methodChannel = const MethodChannel('native_hdr_image_view');
 
   @override
-  Future<String?> getPlatformVersion() async {
-    final version = await methodChannel.invokeMethod<String>(
-      'getPlatformVersion',
-    );
-    return version;
+  Future<bool> hasHdrSupport() async {
+    final supported = await methodChannel.invokeMethod<bool>('hasHdrSupport');
+    return supported ?? false;
   }
 }

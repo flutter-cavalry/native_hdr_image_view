@@ -27,18 +27,19 @@ public class NativeHdrImageViewPlugin: NSObject, FlutterPlugin {
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
-    case "getPlatformVersion":
-      // Use compile-time conditions to return the correct OS version string.
-      #if os(iOS)
-        result("iOS " + UIDevice.current.systemVersion)
-      #elseif os(macOS)
-        result("macOS " + ProcessInfo.processInfo.operatingSystemVersionString)
-      #else
-        // A fallback for any other Apple platform that might be supported in the future.
-        result(FlutterMethodNotImplemented)
-      #endif
+    case "hasHdrSupport":
+      result(nativeHdrSupportAvailable())
     default:
       result(FlutterMethodNotImplemented)
     }
   }
+}
+
+func nativeHdrSupportAvailable() -> Bool {
+  #if os(iOS)
+    if #available(iOS 17.0, *) { return true }
+  #elseif os(macOS)
+    if #available(macOS 14.0, *) { return true }
+  #endif
+  return false
 }

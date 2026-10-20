@@ -1,16 +1,22 @@
 # native_hdr_image_view
 
-Display HDR images from files, encoded bytes, or URLs in native Apple image views without decoding or
-tone-mapping them in Flutter.
+Display HDR images from files, encoded bytes, or URLs in native platform image views without
+decoding or tone-mapping them in Flutter.
 
 | Platform | Minimum OS | Native view | Flutter view |
 | --- | --- | --- | --- |
-| iOS | 17.0 | `UIImageView` | `UiKitView` |
-| macOS | 14.0 | `NSImageView` | `AppKitView` |
+| Android | 7.0 (API 24) | `ImageView` | `AndroidView` |
+| iOS | 16.0 | `UIImageView` | `UiKitView` |
+| macOS | 12.0 | `NSImageView` | `AppKitView` |
 
-Both native views set `preferredImageDynamicRange` to `.high`. Visible HDR
-depends on the source image, OS decoder, display capabilities, and available
-display headroom. SDR files display normally. Android rendering is not implemented.
+The Apple native views set `preferredImageDynamicRange` to `.high`. On Android,
+`ImageDecoder` is used on API 28+ and `BitmapFactory` is used on earlier
+versions. `NativeHdrImageView.hasHdrSupport()` reports whether the current OS
+has native HDR image support: Android 14+, iOS 17+, or macOS 14+. It does not
+guarantee that the current display or image can show visible HDR. When native
+HDR is unavailable, the platform view still displays the image without HDR
+enhancement. The Android view requests HDR window color mode for images
+containing a gain map. Windows rendering is not implemented.
 
 ## Usage
 
@@ -49,18 +55,39 @@ byte buffers after passing them to the widget; provide a new buffer to update
 an image. The original `NativeHdrImageView(imagePath: ...)` constructor remains
 available; a null path displays an empty view.
 
+Check native support before replacing a Flutter image view:
+
+```dart
+if (await NativeHdrImageView.hasHdrSupport()) {
+  // Display the image with NativeHdrImageView.
+}
+```
+
+When `hasHdrSupport()` returns false, `NativeHdrImageView` can still be used to
+display the image normally; the image will not receive native HDR enhancement.
+
 Changing the source loads the new image and cancels any previous download.
 Changing only `fit`, `width`, or `height` does not reload the image. Unreadable
 or undecodable images report `invalid_image`, HTTP and transport failures report
 `network_error`, and invalid URL schemes report `invalid_url` through Flutter's
 error reporting as `PlatformException`s.
 
+### Android
+
+Android 7.0 (API 24) is the minimum supported version. HDR output requires a
+compatible HDR image, Android 14 or newer for Ultra HDR JPEGs, and an HDR
+capable display. The plugin requests HDR window color mode when it detects an
+Ultra HDR gain map and restores the previous mode when that image is removed.
+Files must be readable by the application.
+
 ### Network And File Access
 
-Network images are supported on both iOS and macOS, using native `URLSession`
-downloads. HTTPS is recommended; HTTP is subject to Apple's App Transport
-Security policy and may require application-specific exceptions. Downloads do
-not use Flutter's `ImageCache`; any HTTP caching follows the system URL session.
+Network images are supported on Android, iOS, and macOS. Android uses native
+`HttpURLConnection`; Apple uses `URLSession`. HTTPS is recommended; HTTP is
+subject to Apple's App Transport Security policy and may require
+application-specific exceptions. Downloads do not use Flutter's `ImageCache`.
+
+The plugin declares the Android `INTERNET` permission for network images.
 
 Sandboxed macOS applications must enable outgoing connections in **both** debug
 and release entitlements:
@@ -83,5 +110,6 @@ parent constraints, so an outer `SizedBox` is not required. When either dimensio
 is omitted, the parent must constrain that axis; native platform views do not
 provide intrinsic image sizing or an intrinsic aspect ratio to Flutter.
 
-Set the application's deployment targets to iOS 17.0 and macOS 14.0 or newer.
-
+Set the application's deployment targets to Android API 24, iOS 16.0, and
+macOS 12.0 or newer. Native HDR image rendering requires Android 14+, iOS 17+,
+or macOS 14+.

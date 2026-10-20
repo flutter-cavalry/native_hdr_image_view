@@ -8,10 +8,13 @@ void main() {
   MethodChannelNativeHdrImageView platform = MethodChannelNativeHdrImageView();
   const MethodChannel channel = MethodChannel('native_hdr_image_view');
 
+  bool? nativeSupport = true;
+
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
-          return '42';
+          if (methodCall.method == 'hasHdrSupport') return nativeSupport;
+          return null;
         });
   });
 
@@ -20,7 +23,19 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  test('getPlatformVersion', () async {
-    expect(await platform.getPlatformVersion(), '42');
+  test('hasHdrSupport', () async {
+    expect(await platform.hasHdrSupport(), true);
+  });
+
+  test('hasHdrSupport returns false when native HDR is unsupported', () async {
+    nativeSupport = false;
+
+    expect(await platform.hasHdrSupport(), false);
+  });
+
+  test('hasHdrSupport defaults to false when native result is absent', () async {
+    nativeSupport = null;
+
+    expect(await platform.hasHdrSupport(), false);
   });
 }

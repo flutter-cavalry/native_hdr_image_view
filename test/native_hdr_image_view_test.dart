@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,7 +14,7 @@ class MockNativeHdrImageViewPlatform
     with MockPlatformInterfaceMixin
     implements NativeHdrImageViewPlatform {
   @override
-  Future<String?> getPlatformVersion() => Future.value('42');
+  Future<bool> hasHdrSupport() => Future<bool>.value(true);
 }
 
 void main() {
@@ -23,16 +25,23 @@ void main() {
     expect(initialPlatform, isInstanceOf<MethodChannelNativeHdrImageView>());
   });
 
-  test('getPlatformVersion', () async {
-    NativeHdrImageView nativeHdrImageViewPlugin = NativeHdrImageView();
+  test('hasHdrSupport', () async {
     MockNativeHdrImageViewPlatform fakePlatform =
         MockNativeHdrImageViewPlatform();
     NativeHdrImageViewPlatform.instance = fakePlatform;
 
-    expect(await nativeHdrImageViewPlugin.getPlatformVersion(), '42');
+    expect(await NativeHdrImageView.hasHdrSupport(), true);
+  });
+
+  test('hasHdrSupport is false on unsupported platforms', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    expect(await NativeHdrImageView.hasHdrSupport(), false);
   });
 
   for (final platform in <TargetPlatform>[
+    TargetPlatform.android,
     TargetPlatform.iOS,
     TargetPlatform.macOS,
   ]) {
@@ -91,7 +100,11 @@ void main() {
         'fit': 'contain',
       });
       expect(
-        find.byType(platform == TargetPlatform.iOS ? UiKitView : AppKitView),
+        find.byType(switch (platform) {
+          TargetPlatform.android => AndroidView,
+          TargetPlatform.iOS => UiKitView,
+          _ => AppKitView,
+        }),
         findsOneWidget,
       );
       for (final fit in BoxFit.values) {
@@ -115,9 +128,11 @@ void main() {
         'imagePath': '/tmp/local.heic',
         'fit': 'cover',
       });
-      final viewFinder = find.byType(
-        platform == TargetPlatform.iOS ? UiKitView : AppKitView,
-      );
+      final viewFinder = find.byType(switch (platform) {
+        TargetPlatform.android => AndroidView,
+        TargetPlatform.iOS => UiKitView,
+        _ => AppKitView,
+      });
       expect(tester.getSize(viewFinder), const Size(200, 150));
 
       final bytes = Uint8List.fromList(<int>[1, 2, 3]);

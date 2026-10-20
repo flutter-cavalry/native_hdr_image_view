@@ -92,12 +92,16 @@ private final class NativeHdrImageContainer: ImageContainer {
     #if os(iOS)
       clipsToBounds = true
       imageView.contentMode = .scaleToFill
-      imageView.preferredImageDynamicRange = .high
+      if #available(iOS 17.0, *) {
+        imageView.preferredImageDynamicRange = .high
+      }
     #elseif os(macOS)
       wantsLayer = true
       layer?.masksToBounds = true
       imageView.imageScaling = .scaleAxesIndependently
-      imageView.preferredImageDynamicRange = .high
+      if #available(macOS 14.0, *) {
+        imageView.preferredImageDynamicRange = .high
+      }
     #endif
     addSubview(imageView)
     update(arguments) { _ in }

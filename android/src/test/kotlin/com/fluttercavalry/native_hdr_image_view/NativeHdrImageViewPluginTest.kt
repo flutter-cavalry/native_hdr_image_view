@@ -15,13 +15,15 @@ import kotlin.test.Test
 
 internal class NativeHdrImageViewPluginTest {
     @Test
-    fun onMethodCall_getPlatformVersion_returnsExpectedValue() {
+    fun onMethodCall_hasHdrSupport_returnsNativePlatformCapability() {
         val plugin = NativeHdrImageViewPlugin()
 
-        val call = MethodCall("getPlatformVersion", null)
+        val call = MethodCall("hasHdrSupport", null)
         val mockResult: MethodChannel.Result = Mockito.mock(MethodChannel.Result::class.java)
         plugin.onMethodCall(call, mockResult)
 
-        Mockito.verify(mockResult).success("Android " + android.os.Build.VERSION.RELEASE)
+        Mockito.verify(mockResult).success(
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+        )
     }
 }

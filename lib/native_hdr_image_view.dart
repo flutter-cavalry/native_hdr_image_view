@@ -63,8 +63,19 @@ class NativeHdrImageView extends StatefulWidget {
   final double? height;
   final BoxFit fit;
 
-  Future<String?> getPlatformVersion() {
-    return NativeHdrImageViewPlatform.instance.getPlatformVersion();
+  /// Whether the current OS provides native HDR image rendering support.
+  ///
+  /// This does not guarantee that the current display or image supports HDR.
+  static Future<bool> hasHdrSupport() {
+    if (kIsWeb ||
+        !<TargetPlatform>{
+          TargetPlatform.android,
+          TargetPlatform.iOS,
+          TargetPlatform.macOS,
+        }.contains(defaultTargetPlatform)) {
+      return Future<bool>.value(false);
+    }
+    return NativeHdrImageViewPlatform.instance.hasHdrSupport();
   }
 
   @override
@@ -115,6 +126,14 @@ class _NativeHdrImageViewState extends State<NativeHdrImageView> {
   Widget build(BuildContext context) {
     final Widget view;
     switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        view = AndroidView(
+          viewType: 'native_hdr_image_view',
+          creationParams: _parameters,
+          creationParamsCodec: const StandardMessageCodec(),
+          onPlatformViewCreated: _onPlatformViewCreated,
+        );
+        break;
       case TargetPlatform.iOS:
         view = UiKitView(
           viewType: 'native_hdr_image_view',
@@ -133,7 +152,7 @@ class _NativeHdrImageViewState extends State<NativeHdrImageView> {
         break;
       default:
         throw UnsupportedError(
-          'NativeHdrImageView requires iOS 17+ or macOS 14+.',
+          'NativeHdrImageView is only supported on Android, iOS, and macOS.',
         );
     }
     return SizedBox(width: widget.width, height: widget.height, child: view);
