@@ -25,28 +25,39 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
+import java.util.WeakHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
-import java.util.WeakHashMap
 
 internal class NativeHdrImagePlatformView(
     context: Context,
     viewId: Int,
     messenger: BinaryMessenger,
-) : PlatformView, MethodChannel.MethodCallHandler {
+) : PlatformView,
+    MethodChannel.MethodCallHandler {
     private sealed class Source {
-        data class FilePath(val path: String) : Source()
-        data class NetworkUrl(val url: String) : Source()
-        class EncodedBytes(val bytes: ByteArray) : Source() {
-            override fun equals(other: Any?): Boolean =
-                other is EncodedBytes && bytes.contentEquals(other.bytes)
+        data class FilePath(
+            val path: String,
+        ) : Source()
+
+        data class NetworkUrl(
+            val url: String,
+        ) : Source()
+
+        class EncodedBytes(
+            val bytes: ByteArray,
+        ) : Source() {
+            override fun equals(other: Any?): Boolean = other is EncodedBytes && bytes.contentEquals(other.bytes)
 
             override fun hashCode(): Int = bytes.contentHashCode()
         }
     }
 
-    private class NetworkException(message: String, val details: String) : IOException(message)
+    private class NetworkException(
+        message: String,
+        val details: String,
+    ) : IOException(message)
 
     private val container = FrameLayout(context)
     private val imageView = ImageView(context)
@@ -57,6 +68,7 @@ internal class NativeHdrImagePlatformView(
     private var generation = 0
     private var load: Future<*>? = null
     private val pendingResults = mutableListOf<MethodChannel.Result>()
+
     @Volatile
     private var activeConnection: HttpURLConnection? = null
     private var disposed = false
@@ -81,7 +93,10 @@ internal class NativeHdrImagePlatformView(
 
     override fun getView(): View = container
 
-    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    override fun onMethodCall(
+        call: MethodCall,
+        result: MethodChannel.Result,
+    ) {
         if (call.method != "update") {
             result.notImplemented()
             return
@@ -92,12 +107,13 @@ internal class NativeHdrImagePlatformView(
             return
         }
 
-        val nextSource = try {
-            parseSource(parameters)
-        } catch (error: IllegalArgumentException) {
-            result.error("invalid_url", error.message, parameters["imageUrl"])
-            return
-        }
+        val nextSource =
+            try {
+                parseSource(parameters)
+            } catch (error: IllegalArgumentException) {
+                result.error("invalid_url", error.message, parameters["imageUrl"])
+                return
+            }
         fit = parameters["fit"] as? String ?: "contain"
         updateImageMatrix()
         if (nextSource == source) {
@@ -127,41 +143,43 @@ internal class NativeHdrImagePlatformView(
 
         pendingResults.add(result)
         val currentGeneration = generation
-        load = loader.submit {
-            try {
-                val drawable = decode(nextSource)
-                mainHandler.post {
-                    if (currentGeneration == generation && !disposed) {
-                        load = null
-                        updateWindowColorMode(drawable)
-                        imageView.setImageDrawable(drawable)
-                        updateImageMatrix()
-                        finishPendingRequest()
-                    }
-                }
-            } catch (error: NetworkException) {
-                mainHandler.post {
-                    if (currentGeneration == generation && !disposed) {
-                        load = null
-                        source = null
-                        finishPendingRequest("network_error", error.message, error.details)
-                    }
-                }
-            } catch (error: Exception) {
-                mainHandler.post {
-                    if (currentGeneration == generation && !disposed) {
-                        load = null
-                        source = null
-                        val (message, details) = when (nextSource) {
-                            is Source.FilePath -> "Cannot load image file." to nextSource.path
-                            is Source.NetworkUrl -> "Cannot decode downloaded image." to nextSource.url
-                            is Source.EncodedBytes -> "Cannot decode image bytes." to null
+        load =
+            loader.submit {
+                try {
+                    val drawable = decode(nextSource)
+                    mainHandler.post {
+                        if (currentGeneration == generation && !disposed) {
+                            load = null
+                            updateWindowColorMode(drawable)
+                            imageView.setImageDrawable(drawable)
+                            updateImageMatrix()
+                            finishPendingRequest()
                         }
-                        finishPendingRequest("invalid_image", message, details)
+                    }
+                } catch (error: NetworkException) {
+                    mainHandler.post {
+                        if (currentGeneration == generation && !disposed) {
+                            load = null
+                            source = null
+                            finishPendingRequest("network_error", error.message, error.details)
+                        }
+                    }
+                } catch (error: Exception) {
+                    mainHandler.post {
+                        if (currentGeneration == generation && !disposed) {
+                            load = null
+                            source = null
+                            val (message, details) =
+                                when (nextSource) {
+                                    is Source.FilePath -> "Cannot load image file." to nextSource.path
+                                    is Source.NetworkUrl -> "Cannot decode downloaded image." to nextSource.url
+                                    is Source.EncodedBytes -> "Cannot decode image bytes." to null
+                                }
+                            finishPendingRequest("invalid_image", message, details)
+                        }
                     }
                 }
             }
-        }
     }
 
     override fun dispose() {
@@ -179,11 +197,12 @@ internal class NativeHdrImagePlatformView(
     private fun parseSource(parameters: Map<*, *>): Source? {
         val urlString = parameters["imageUrl"] as? String
         if (urlString != null) {
-            val url = try {
-                URL(urlString)
-            } catch (error: Exception) {
-                throw IllegalArgumentException("Expected an HTTP or HTTPS image URL.", error)
-            }
+            val url =
+                try {
+                    URL(urlString)
+                } catch (error: Exception) {
+                    throw IllegalArgumentException("Expected an HTTP or HTTPS image URL.", error)
+                }
             if (url.protocol !in setOf("http", "https") || url.host.isBlank()) {
                 throw IllegalArgumentException("Expected an HTTP or HTTPS image URL.")
             }
@@ -197,22 +216,30 @@ internal class NativeHdrImagePlatformView(
     }
 
     private fun decode(source: Source): Drawable {
-        val bytes = when (source) {
-            is Source.FilePath -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    // ImageDecoder can retain HDR gain maps; BitmapFactory is the
-                    // compatibility path for Android versions before API 28.
-                    return ImageDecoder.decodeDrawable(
-                        ImageDecoder.createSource(File(source.path)),
-                    )
+        val bytes =
+            when (source) {
+                is Source.FilePath -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        // ImageDecoder can retain HDR gain maps; BitmapFactory is the
+                        // compatibility path for Android versions before API 28.
+                        return ImageDecoder.decodeDrawable(
+                            ImageDecoder.createSource(File(source.path)),
+                        )
+                    }
+                    val bitmap =
+                        BitmapFactory.decodeFile(source.path)
+                            ?: throw IOException("Cannot decode image file.")
+                    return BitmapDrawable(container.resources, bitmap)
                 }
-                val bitmap = BitmapFactory.decodeFile(source.path)
-                    ?: throw IOException("Cannot decode image file.")
-                return BitmapDrawable(container.resources, bitmap)
+
+                is Source.EncodedBytes -> {
+                    source.bytes
+                }
+
+                is Source.NetworkUrl -> {
+                    download(source.url)
+                }
             }
-            is Source.EncodedBytes -> source.bytes
-            is Source.NetworkUrl -> download(source.url)
-        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             // Decode the original encoded bytes so Android can keep HDR metadata.
@@ -220,17 +247,19 @@ internal class NativeHdrImagePlatformView(
                 ImageDecoder.createSource(ByteBuffer.wrap(bytes)),
             )
         }
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            ?: throw IOException("Cannot decode image bytes.")
+        val bitmap =
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                ?: throw IOException("Cannot decode image bytes.")
         return BitmapDrawable(container.resources, bitmap)
     }
 
     private fun download(urlString: String): ByteArray {
-        val connection = (URL(urlString).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15_000
-            readTimeout = 15_000
-            instanceFollowRedirects = true
-        }
+        val connection =
+            (URL(urlString).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15_000
+                readTimeout = 15_000
+                instanceFollowRedirects = true
+            }
         activeConnection = connection
         try {
             val status = connection.responseCode
@@ -319,26 +348,29 @@ internal class NativeHdrImagePlatformView(
                 scaleX = widthScale
                 scaleY = heightScale
             }
+
             else -> {
-                val scale = when (fit) {
-                    "cover" -> maxOf(widthScale, heightScale)
-                    "fitWidth" -> widthScale
-                    "fitHeight" -> heightScale
-                    "none" -> 1f
-                    "scaleDown" -> minOf(1f, minOf(widthScale, heightScale))
-                    else -> minOf(widthScale, heightScale)
-                }
+                val scale =
+                    when (fit) {
+                        "cover" -> maxOf(widthScale, heightScale)
+                        "fitWidth" -> widthScale
+                        "fitHeight" -> heightScale
+                        "none" -> 1f
+                        "scaleDown" -> minOf(1f, minOf(widthScale, heightScale))
+                        else -> minOf(widthScale, heightScale)
+                    }
                 scaleX = scale
                 scaleY = scale
             }
         }
-        val matrix = Matrix().apply {
-            setScale(scaleX, scaleY)
-            postTranslate(
-                (viewWidth - imageWidth * scaleX) / 2f,
-                (viewHeight - imageHeight * scaleY) / 2f,
-            )
-        }
+        val matrix =
+            Matrix().apply {
+                setScale(scaleX, scaleY)
+                postTranslate(
+                    (viewWidth - imageWidth * scaleX) / 2f,
+                    (viewHeight - imageHeight * scaleY) / 2f,
+                )
+            }
         imageView.imageMatrix = matrix
     }
 
@@ -363,5 +395,8 @@ internal class NativeHdrImagePlatformView(
         private val hdrWindows = WeakHashMap<Activity, HdrWindowState>()
     }
 
-    private data class HdrWindowState(val previousColorMode: Int, var viewCount: Int)
+    private data class HdrWindowState(
+        val previousColorMode: Int,
+        var viewCount: Int,
+    )
 }

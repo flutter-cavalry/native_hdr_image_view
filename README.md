@@ -3,11 +3,11 @@
 Display HDR images from files, encoded bytes, or URLs in native platform image views without
 decoding or tone-mapping them in Flutter.
 
-| Platform | Minimum OS | Native view | Flutter view |
-| --- | --- | --- | --- |
-| Android | 7.0 (API 24) | `ImageView` | `AndroidView` |
-| iOS | 16.0 | `UIImageView` | `UiKitView` |
-| macOS | 12.0 | `NSImageView` | `AppKitView` |
+| Platform | Minimum OS   | Native view   | Flutter view  |
+| -------- | ------------ | ------------- | ------------- |
+| Android  | 7.0 (API 24) | `ImageView`   | `AndroidView` |
+| iOS      | 16.0         | `UIImageView` | `UiKitView`   |
+| macOS    | 12.0         | `NSImageView` | `AppKitView`  |
 
 The Apple native views set `preferredImageDynamicRange` to `.high`. On Android,
 `ImageDecoder` is used on API 28+ and `BitmapFactory` is used on earlier
