@@ -13,6 +13,7 @@ class NativeHdrImageView extends StatefulWidget {
     this.width,
     this.height,
     this.fit = BoxFit.contain,
+    this.errorBuilder,
   }) : imageBytes = null,
        imageUrl = null,
        assert(width == null || width >= 0),
@@ -24,12 +25,14 @@ class NativeHdrImageView extends StatefulWidget {
     double? width,
     double? height,
     BoxFit fit = BoxFit.contain,
+    ImageErrorWidgetBuilder? errorBuilder,
   }) : this(
          key: key,
          imagePath: file.path,
          width: width,
          height: height,
          fit: fit,
+         errorBuilder: errorBuilder,
        );
 
   const NativeHdrImageView.bytes(
@@ -38,6 +41,7 @@ class NativeHdrImageView extends StatefulWidget {
     this.width,
     this.height,
     this.fit = BoxFit.contain,
+    this.errorBuilder,
   }) : imageBytes = bytes,
        imagePath = null,
        imageUrl = null,
@@ -50,6 +54,7 @@ class NativeHdrImageView extends StatefulWidget {
     this.width,
     this.height,
     this.fit = BoxFit.contain,
+    this.errorBuilder,
   }) : imageUrl = url,
        imagePath = null,
        imageBytes = null,
@@ -62,6 +67,7 @@ class NativeHdrImageView extends StatefulWidget {
   final double? width;
   final double? height;
   final BoxFit fit;
+  final ImageErrorWidgetBuilder? errorBuilder;
 
   /// Whether the current OS provides native HDR image rendering support.
   ///
@@ -84,6 +90,9 @@ class NativeHdrImageView extends StatefulWidget {
 
 class _NativeHdrImageViewState extends State<NativeHdrImageView> {
   MethodChannel? _channel;
+  Object? _error;
+  StackTrace? _errorStack;
+  int _request = 0;
 
   Map<String, Object?> get _parameters => <String, Object?>{
     'imagePath': widget.imagePath,
@@ -99,21 +108,33 @@ class _NativeHdrImageViewState extends State<NativeHdrImageView> {
         oldWidget.imageBytes != widget.imageBytes ||
         oldWidget.imageUrl != widget.imageUrl ||
         oldWidget.fit != widget.fit) {
+      _error = null;
+      _errorStack = null;
       _updateView();
     }
   }
 
   Future<void> _updateView() async {
+    final channel = _channel;
+    if (channel == null) return;
+    final request = ++_request;
     try {
-      await _channel?.invokeMethod<void>('update', _parameters);
+      await channel.invokeMethod<void>('update', _parameters);
     } on PlatformException catch (error, stack) {
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stack,
-          library: 'native_hdr_image_view',
-        ),
-      );
+      if (!mounted || request != _request) return;
+      setState(() {
+        _error = error;
+        _errorStack = stack;
+      });
+      if (widget.errorBuilder == null) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'native_hdr_image_view',
+          ),
+        );
+      }
     }
   }
 
@@ -155,6 +176,19 @@ class _NativeHdrImageViewState extends State<NativeHdrImageView> {
           'NativeHdrImageView is only supported on Android, iOS, and macOS.',
         );
     }
-    return SizedBox(width: widget.width, height: widget.height, child: view);
+    final errorBuilder = widget.errorBuilder;
+    final showError = _error != null && errorBuilder != null;
+    return SizedBox(
+      width: widget.width,
+      height: widget.height,
+      child: IndexedStack(
+        index: showError ? 1 : 0,
+        sizing: StackFit.passthrough,
+        children: [
+          view,
+          if (showError) errorBuilder(context, _error!, _errorStack),
+        ],
+      ),
+    );
   }
 }

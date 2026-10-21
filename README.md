@@ -72,6 +72,19 @@ or undecodable images report `invalid_image`, HTTP and transport failures report
 `network_error`, and invalid URL schemes report `invalid_url` through Flutter's
 error reporting as `PlatformException`s.
 
+All constructors accept Flutter's `ImageErrorWidgetBuilder` as `errorBuilder`:
+
+```dart
+NativeHdrImageView.file(
+	File('/absolute/path/to/image.heic'),
+	errorBuilder: (context, error, stackTrace) => const Text('Cannot load image'),
+)
+```
+
+When supplied, the builder displays a replacement widget instead of reporting
+the failure to `FlutterError.onError`. Changing the source clears the error and
+loads the new image. Failures from replaced sources or disposed widgets are ignored.
+
 ### Android
 
 Android 7.0 (API 24) is the minimum supported version. HDR output requires a

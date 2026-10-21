@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart'
@@ -50,6 +51,7 @@ void main() {
     ) async {
       final messenger = tester.binding.defaultBinaryMessenger;
       final updates = <MethodCall>[];
+      Future<void> Function()? onUpdate;
       final viewIds = <int>[];
       Map<Object?, Object?>? creationParameters;
       messenger.setMockMethodCallHandler(SystemChannels.platform_views, (
@@ -65,7 +67,11 @@ void main() {
           ) as Map<Object?, Object?>;
           messenger.setMockMethodCallHandler(
             MethodChannel('native_hdr_image_view/$id'),
-            (call) async => updates.add(call),
+            (call) async {
+              updates.add(call);
+              await onUpdate?.call();
+              return null;
+            },
           );
         }
         return null;
@@ -169,11 +175,81 @@ void main() {
       expect(updates, hasLength(updateCount));
       expect(tester.getSize(viewFinder), const Size(300, 180));
 
+      final failure = PlatformException(
+        code: 'invalid_image',
+        message: 'Cannot decode image.',
+      );
+      Object? receivedError;
+      StackTrace? receivedStack;
+      Widget errorBuilder(
+        BuildContext context,
+        Object error,
+        StackTrace? stack,
+      ) {
+        receivedError = error;
+        receivedStack = stack;
+        return const Text('Image failed');
+      }
+
+      for (final failedView in <NativeHdrImageView>[
+        NativeHdrImageView.file(
+          File('/tmp/missing.heic'),
+          errorBuilder: errorBuilder,
+        ),
+        NativeHdrImageView.bytes(bytes, errorBuilder: errorBuilder),
+        NativeHdrImageView.network(
+          'https://example.com/missing.heic',
+          errorBuilder: errorBuilder,
+        ),
+      ]) {
+        onUpdate = () async => throw failure;
+        await showView(failedView);
+        expect(find.text('Image failed'), findsOneWidget);
+        expect((receivedError! as PlatformException).code, failure.code);
+        expect(receivedStack, isNotNull);
+        expect(tester.takeException(), isNull);
+
+        onUpdate = null;
+        await show('/tmp/recovered.heic', BoxFit.contain);
+        expect(find.text('Image failed'), findsNothing);
+        expect(viewFinder, findsOneWidget);
+        expect(viewIds, hasLength(1));
+      }
+
+      onUpdate = () async => throw failure;
+      await show('/tmp/no-builder.heic', BoxFit.contain);
+      expect(tester.takeException(), isA<PlatformException>());
+
+      final pending = Completer<void>();
+      onUpdate = () => pending.future;
+      await showView(
+        NativeHdrImageView(
+          imagePath: '/tmp/old.heic',
+          errorBuilder: errorBuilder,
+        ),
+      );
+      onUpdate = null;
+      await showView(
+        NativeHdrImageView(
+          imagePath: '/tmp/new.heic',
+          errorBuilder: errorBuilder,
+        ),
+      );
+      pending.completeError(failure);
+      await tester.pump();
+      expect(find.text('Image failed'), findsNothing);
+      expect(tester.takeException(), isNull);
+
       await show(null, BoxFit.contain);
       expect((updates.last.arguments as Map)['imagePath'], isNull);
       expect(viewIds, hasLength(1));
+      final disposedRequest = Completer<void>();
+      onUpdate = () => disposedRequest.future;
+      await show('/tmp/disposed.heic', BoxFit.contain);
       await tester.pumpWidget(const SizedBox.shrink());
+      disposedRequest.completeError(failure);
       await tester.pump();
+      expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant(<TargetPlatform>{platform}));
   }
 }

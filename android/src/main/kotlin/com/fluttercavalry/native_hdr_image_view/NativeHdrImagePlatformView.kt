@@ -56,7 +56,7 @@ internal class NativeHdrImagePlatformView(
     private var fit = "contain"
     private var generation = 0
     private var load: Future<*>? = null
-    private var pendingResult: MethodChannel.Result? = null
+    private val pendingResults = mutableListOf<MethodChannel.Result>()
     @Volatile
     private var activeConnection: HttpURLConnection? = null
     private var disposed = false
@@ -101,7 +101,11 @@ internal class NativeHdrImagePlatformView(
         fit = parameters["fit"] as? String ?: "contain"
         updateImageMatrix()
         if (nextSource == source) {
-            result.success(null)
+            if (load != null) {
+                pendingResults.add(result)
+            } else {
+                result.success(null)
+            }
             return
         }
 
@@ -121,7 +125,7 @@ internal class NativeHdrImagePlatformView(
             return
         }
 
-        pendingResult = result
+        pendingResults.add(result)
         val currentGeneration = generation
         load = loader.submit {
             try {
@@ -343,12 +347,14 @@ internal class NativeHdrImagePlatformView(
         message: String? = null,
         details: Any? = null,
     ) {
-        val result = pendingResult ?: return
-        pendingResult = null
-        if (errorCode == null) {
-            result.success(null)
-        } else {
-            result.error(errorCode, message, details)
+        val results = pendingResults.toList()
+        pendingResults.clear()
+        for (result in results) {
+            if (errorCode == null) {
+                result.success(null)
+            } else {
+                result.error(errorCode, message, details)
+            }
         }
     }
 
