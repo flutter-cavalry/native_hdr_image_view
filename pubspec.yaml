@@ -1,5 +1,5 @@
 name: native_hdr_image_view
-description: "Native HDR image views for files, bytes, and network URLs on Android, iOS, and macOS, with Flutter BoxFit support."
+description: "Native HDR image views for Flutter."
 version: 0.0.1
 homepage:
 
