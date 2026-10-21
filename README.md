@@ -1,5 +1,7 @@
 # native_hdr_image_view
 
+[![pub package](https://img.shields.io/pub/v/native_hdr_image_view.svg)](https://pub.dev/packages/native_hdr_image_view)
+
 Native HDR image views for Flutter.
 
 | Platform | Min OS version | Min OS version (HDR support) | Native view   |
